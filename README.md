@@ -11,6 +11,7 @@ Around ~(0.2 - 0.4) ms per 32^3 voxels (depends on SDF complexity) (on first gen
 - 3 Different SDF generation mechanism (sphere, noise, something like noise but with spheres - *sphereblobs*)
 Default 3d noise values does not match real SDF values, so I just filled volume with spheres of different sizes at different locations.
 - Use of advanced mesh api for faster uploding meshes. (SetVertexBufferData... etc.)
+- Because its done entirely on cpu, output mesh can be easily used for collisions.
 
 #### Limitations:
 - Meshed area must have 32 voxels in at least one dimension. (this implementation support only chunks 32^3, but it is possible to make it working with 32xNxM)
@@ -25,5 +26,10 @@ Default 3d noise values does not match real SDF values, so I just filled volume 
 
 #### Resources:
 https://github.com/TomaszFoster/NaiveSurfaceNets - I learnt most from this, and used algorithm for connecting vertices properly.
+
 https://github.com/Chaser324/unity-wireframe - for wireframe.
 
+#### Todo:
+ - 16^3 size version
+ - maybe 64^3 size version but on AVX
+ - Currently working on similiar stuff for Marching cubes
