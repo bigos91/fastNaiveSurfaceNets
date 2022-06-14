@@ -2,6 +2,8 @@
 Fast implementation of Naive SurfaceNets in Unity, using Burst and SIMD instructions.
 Around ~(0.2 - 0.4) ms per 32^3 voxels (depends on SDF complexity) (on first gen ryzen 1700, singlethreaded)
 
+https://youtu.be/_Bix6-4O6mM
+
 #### Features:
 - Normals can be generated from SDF values of 2x2x2 cube. Or regenerated from triangles at the end of the job.
 - Optimized to use with Burst and native collections, and may be hard to read.
