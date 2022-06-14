@@ -6,7 +6,7 @@ https://youtu.be/_Bix6-4O6mM
 
 #### Features:
 - Normals can be generated from SDF values of 2x2x2 cube. Or regenerated from triangles at the end of the job.
-- Optimized to use with Burst and native collections, and may be hard to read.
+- It may be hard to read (pointers, native collections, assembly intrinsics)
 - Cornermask calculations are done using SIMD stuff, 32 cubes at time (32x2x2 voxels), reusing values calculated from previous loop steps.
 - All SIMD things are well commented to explain what it is and why, with links to Intel intrinsics pages.
 - Optimal mesh. All vertices are shared. There are no duplicates.
