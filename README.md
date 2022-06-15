@@ -1,6 +1,8 @@
 # fastNaiveSurfaceNets
-Fast implementation of Naive SurfaceNets in Unity, using Burst and SIMD instructions.
-Around ~(0.1 - 0.4) ms per 32^3 voxels (depends on SDF complexity) (on first gen ryzen 1700, singlethreaded)
+- Fast implementation of Naive SurfaceNets in Unity, using Burst and SIMD instructions.
+- Around ~(0.1 - 0.4) ms per 32^3 voxels (depends on SDF complexity) (on first gen ryzen 1700, singlethreaded)
+- Marching cubes version : https://github.com/bigos91/fastMarchingCubes
+
 
 https://youtu.be/_Bix6-4O6mM
 
@@ -27,9 +29,8 @@ Default 3d noise values does not match real SDF values, so I just filled volume 
 - Disable everything what makes burst safe to make it faster :)
 
 #### Resources:
-https://github.com/TomaszFoster/NaiveSurfaceNets - I learnt most from this, and used algorithm for connecting vertices properly.
-
-https://github.com/Chaser324/unity-wireframe - for wireframe.
+- https://github.com/TomaszFoster/NaiveSurfaceNets - I learnt most from this, and used algorithm for connecting vertices properly.
+- https://github.com/Chaser324/unity-wireframe - for wireframe.
 
 #### Simd stuff explanation:
 Naive Surface Nets works similiar to Marching Cubes - we iterate over volume collecting 8 voxel samples for 'cube' at a time.
@@ -43,4 +44,3 @@ Additionally, it is possible to check if whole column of 32x2x2 voxels is above 
 #### Todo:
  - 16^3 size version
  - maybe 64^3 size version but on AVX
- - Currently working on similiar stuff for Marching cubes
