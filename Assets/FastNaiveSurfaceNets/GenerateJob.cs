@@ -98,13 +98,13 @@ namespace NaiveSurfaceNets
 		{
 			for (int i = 0; i < spheresPositions.Length; i++)
 			{
-				var pos = spheresPositions[i] * noiseFreq + time;
+				var pos = spheresPositions[i] * noiseFreq + time * 0.02f;
 				spheresDeltas[i] = new float4
 				{
 					x = noise.snoise(pos.yz) * 5.0f,
 					y = noise.snoise(pos.xz) * 5.0f,
 					z = noise.snoise(pos.xy) * 5.0f,
-					w = noise.snoise(pos.xy + time * 3.0f) * 1.5f + 4.0f
+					w = noise.snoise(pos.xy + time * 0.06f) * 1.5f + 4.0f
 				};
 			}
 		}
@@ -142,12 +142,12 @@ namespace NaiveSurfaceNets
 			{
 				for (int z = 0; z < Chunk.ChunkSize; z++)
 				{
-					float2 noisePos = new float2(x, z) * time;
+					float2 noisePos = new float2(x, z) + time;
 					var val = y - (
 						noise.snoise(noisePos * 0.01f) * 8.0f +
 						noise.snoise(noisePos * 0.02f) * 4.0f +
 						noise.snoise(noisePos * 0.04f) * 2.0f +
-						noise.snoise(noisePos * 0.16f) * 0.5f -
+						noise.snoise(noisePos * 0.16f) * 0.5f +
 						15.5f);
 					val = math.clamp(val, -1.0f, 1.0f) * -127;
 					volume[flatIndex] = (sbyte)val;
