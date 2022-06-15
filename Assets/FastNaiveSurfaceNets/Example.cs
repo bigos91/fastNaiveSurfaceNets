@@ -14,8 +14,9 @@ namespace NaiveSurfaceNets
 {
 	public class Example : MonoBehaviour
 	{
-		public enum ExampleMode { SingleSphere, Noise, Sphereblob }
-		public ExampleMode exampleMode;
+		private bool regenerateOnce = true;
+		private GenerateJob.Mode generateModePrev;
+		public GenerateJob.Mode generateMode;
 		public Mesher.NormalCalculationMode normalCalculationMode;
 		
 		public bool regenerateChunk = false;
@@ -24,14 +25,10 @@ namespace NaiveSurfaceNets
 		public GameObject chunkGameObject;
 		private MeshFilter chunkMeshFilter;
 
-		private ExampleMode exampleModePrev;
-		private bool regenerateOnce = true;
 
 		Chunk chunk;
 		Mesher mesher;
-		SphereJob sphereJob;
-		NoiseJob noiseJob;
-		SphereblobJob noiseSphereJob;
+		GenerateJob generateJob;
 
 		TimeCounter meshingCounter = new TimeCounter(samplesCount: 300);
 		TimeCounter uploadingCounter = new TimeCounter();
@@ -61,13 +58,7 @@ namespace NaiveSurfaceNets
 				wires.wireframeType = GUILayout.Toggle(wires.wireframeType == WireframeImageEffect.WireframeType.Solid, "Wireframe") ? WireframeImageEffect.WireframeType.Solid : WireframeImageEffect.WireframeType.None;
 
 				GUILayout.Space(10);
-				exampleMode = GUILayout.Toggle(exampleMode == ExampleMode.SingleSphere, "Single sphere") ? ExampleMode.SingleSphere : exampleMode;
-				exampleMode = GUILayout.Toggle(exampleMode == ExampleMode.Noise, "Noise") ? ExampleMode.Noise : exampleMode;
-				exampleMode = GUILayout.Toggle(exampleMode == ExampleMode.Sphereblob, "Sphereblobs") ? ExampleMode.Sphereblob : exampleMode;
-
-				GUILayout.Space(10);
-				normalCalculationMode = GUILayout.Toggle(normalCalculationMode == Mesher.NormalCalculationMode.FromSDF, "SDF normals") ? Mesher.NormalCalculationMode.FromSDF : normalCalculationMode;
-				normalCalculationMode = GUILayout.Toggle(normalCalculationMode == Mesher.NormalCalculationMode.Recalculate, "Recalculate normals") ? Mesher.NormalCalculationMode.Recalculate : normalCalculationMode;
+				GUIToggles();
 
 				GUILayout.Space(10);
 
@@ -81,6 +72,17 @@ namespace NaiveSurfaceNets
 			}
 
 			GUILayout.EndHorizontal();
+		}
+		void GUIToggles()
+		{
+			generateMode = GUILayout.Toggle(generateMode == GenerateJob.Mode.SingleSphere, "Single sphere") ? GenerateJob.Mode.SingleSphere : generateMode;
+			generateMode = GUILayout.Toggle(generateMode == GenerateJob.Mode.Noise, "Noise") ? GenerateJob.Mode.Noise : generateMode;
+			generateMode = GUILayout.Toggle(generateMode == GenerateJob.Mode.Sphereblob, "Sphereblobs") ? GenerateJob.Mode.Sphereblob : generateMode;
+			generateMode = GUILayout.Toggle(generateMode == GenerateJob.Mode.Terrain, "Terrain") ? GenerateJob.Mode.Terrain : generateMode;
+
+			GUILayout.Space(10);
+			normalCalculationMode = GUILayout.Toggle(normalCalculationMode == Mesher.NormalCalculationMode.FromSDF, "SDF normals") ? Mesher.NormalCalculationMode.FromSDF : normalCalculationMode;
+			normalCalculationMode = GUILayout.Toggle(normalCalculationMode == Mesher.NormalCalculationMode.Recalculate, "Recalculate normals") ? Mesher.NormalCalculationMode.Recalculate : normalCalculationMode;
 		}
 
 		void Start()
@@ -100,29 +102,19 @@ namespace NaiveSurfaceNets
 
 		void PrepareGeneratorJobsData()
 		{
-			sphereJob = new SphereJob
+			generateJob = new GenerateJob
 			{
 				volume = chunk.data,
-				sphereCenter = new float3(15.5f, 15.5f, 15.5f)
+
+				sphereCenter = new float3(15.5f, 15.5f, 15.5f),
+				noiseFreq = 0.07f,
+				spheresPositions = new NativeArray<float3>(50, Allocator.Persistent),
+				spheresDeltas = new NativeArray<float4>(50, Allocator.Persistent)
 			};
 
-			noiseJob = new NoiseJob
+			for (int i = 0; i < generateJob.spheresPositions.Length; i++)
 			{
-				volume = chunk.data,
-				noiseFreq = 0.07f
-			};
-
-			noiseSphereJob = new SphereblobJob
-			{
-				volume = chunk.data,
-				positions = new NativeArray<float3>(50, Allocator.Persistent),
-				deltas = new NativeArray<float4>(50, Allocator.Persistent),
-				noiseFreq = 0.07f
-			};
-
-			for (int i = 0; i < noiseSphereJob.positions.Length; i++)
-			{
-				noiseSphereJob.positions[i] = new float3
+				generateJob.spheresPositions[i] = new float3
 				{
 					x = UnityEngine.Random.value * (Chunk.ChunkSize - 10) + 5,
 					y = UnityEngine.Random.value * (Chunk.ChunkSize - 10) + 5,
@@ -133,9 +125,9 @@ namespace NaiveSurfaceNets
 
 		void Update()
 		{
-			if (exampleMode != exampleModePrev)
+			if (generateMode != generateModePrev)
 			{
-				exampleModePrev = exampleMode;
+				generateModePrev = generateMode;
 				regenerateOnce = true;
 			}
 
@@ -143,24 +135,11 @@ namespace NaiveSurfaceNets
 			{
 				regenerateOnce = false;
 				chunkRegenCounter.Start();
-				switch (exampleMode)
-				{
-					case ExampleMode.SingleSphere:
-						sphereJob.time += Time.deltaTime * noiseSpeed;
-						sphereJob.Schedule(32, 1).Complete();
-						break;
-					case ExampleMode.Noise:
-						noiseJob.time += Time.deltaTime * noiseSpeed;
-						noiseJob.Schedule(32, 1).Complete();
-						break;
-					case ExampleMode.Sphereblob:
-						noiseSphereJob.time += Time.deltaTime * noiseSpeed * 0.1f;
-						noiseSphereJob.Run();
-						noiseSphereJob.Schedule(32, 1).Complete();
-						break;
-					default:
-						break;
-				}
+				generateJob.time += Time.deltaTime * noiseSpeed;
+				generateJob.mode = generateMode;
+				if (generateMode == GenerateJob.Mode.Sphereblob)
+					generateJob.Run();
+				generateJob.Schedule(32, 1).Complete();
 				chunkRegenCounter.Stop();
 			}
 
@@ -215,8 +194,8 @@ namespace NaiveSurfaceNets
 		{
 			chunk.Dispose();
 			mesher.Dispose();
-			noiseSphereJob.positions.Dispose();
-			noiseSphereJob.deltas.Dispose();
+			generateJob.spheresPositions.Dispose();
+			generateJob.spheresDeltas.Dispose();
 		}
 	}
 }

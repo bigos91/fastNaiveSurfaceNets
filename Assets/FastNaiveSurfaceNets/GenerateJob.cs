@@ -10,20 +10,56 @@ using Unity.Collections;
 namespace NaiveSurfaceNets
 {
 	/// <summary>
-	/// Generate spherical SDF
+	/// Generate SDF
 	/// </summary>
 	[BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true, FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low)]
-	public struct SphereJob : IJobParallelFor
+	public struct GenerateJob : IJob, IJobParallelFor
 	{
+		public enum Mode { SingleSphere, Noise, Sphereblob, Terrain }
+		public Mode mode;
+
 		[NoAlias][WriteOnly][NativeDisableParallelForRestriction] public NativeArray<sbyte> volume;
 		public float time;
+
+		// used by different modes
 		public float3 sphereCenter;
+		public float noiseFreq;
+		[NoAlias][NativeDisableParallelForRestriction][ReadOnly] public NativeArray<float3> spheresPositions;
+		[NoAlias][NativeDisableParallelForRestriction] public NativeArray<float4> spheresDeltas;
+
+
+		public void Execute()
+		{
+			SphereblobUpdate();
+		}
 
 		public void Execute(int jobIndex)
 		{
-			var flatIndex = jobIndex * Chunk.ChunkSize * Chunk.ChunkSize;
+			switch (mode)
+			{
+				case Mode.SingleSphere:
+					SphereJob(jobIndex);
+					break;
+				case Mode.Noise:
+					NoiseJob(jobIndex);
+					break;
+				case Mode.Sphereblob:
+					SphereblobJob(jobIndex);
+					break;
+				case Mode.Terrain:
+					TerrainJob(jobIndex);
+					break;
+				default:
+					break;
+			}
+		}
+
+
+		private void SphereJob(int x)
+		{
+			var flatIndex = x * Chunk.ChunkSize * Chunk.ChunkSize;
 			var sphereRadius = 14.4f + math.sin(time);
-			var x = jobIndex;
+
 			for (int y = 0; y < Chunk.ChunkSize; y++)
 			{
 				for (int z = 0; z < Chunk.ChunkSize; z++)
@@ -35,30 +71,13 @@ namespace NaiveSurfaceNets
 					flatIndex++;
 				}
 			}
-
 		}
-	}
 
-
-	/// <summary>
-	/// Generate something Like SDF from 4d noise.
-	/// Noise function output does not match proper SDF, but it is good enough.
-	/// </summary>
-	[BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true, FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low)]
-	public struct NoiseJob : IJobParallelFor
-	{
-		[NoAlias][WriteOnly][NativeDisableParallelForRestriction] public NativeArray<sbyte> volume;
-		public float time;
-		public float noiseFreq;
-
-		/// <summary>
-		/// Parallel job for x coordinate
-		/// </summary>
-		public void Execute(int jobIndex)
+		private void NoiseJob(int x)
 		{
-			var flatIndex = jobIndex * Chunk.ChunkSize * Chunk.ChunkSize;
+			var flatIndex = x * Chunk.ChunkSize * Chunk.ChunkSize;
 
-			float4 position = new float4(jobIndex * noiseFreq, 0, 0, time * noiseFreq);
+			float4 position = new float4(x * noiseFreq, 0, 0, time * noiseFreq);
 
 			for (int y = 0; y < Chunk.ChunkSize; y++)
 			{
@@ -74,47 +93,25 @@ namespace NaiveSurfaceNets
 				}
 			}
 		}
-	}
 
-
-	/// <summary>
-	/// Generate more proper SDF than noise based
-	/// </summary>
-	[BurstCompile(CompileSynchronously = true, DisableSafetyChecks = true, FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low)]
-	public struct SphereblobJob : IJobParallelFor, IJob
-	{
-		[NoAlias][NativeDisableParallelForRestriction][WriteOnly] public NativeArray<sbyte> volume;
-		[NoAlias][NativeDisableParallelForRestriction][ReadOnly] public NativeArray<float3> positions;
-		[NoAlias][NativeDisableParallelForRestriction] public NativeArray<float4> deltas;
-		public float time;
-		public float noiseFreq;
-
-		/// <summary>
-		/// Single threaded job to modify delta positions of spheres
-		/// </summary>
-		public void Execute()
+		private void SphereblobUpdate()
 		{
-			for (int i = 0; i < positions.Length; i++)
+			for (int i = 0; i < spheresPositions.Length; i++)
 			{
-				var pos = positions[i] * noiseFreq + time;
-				deltas[i] = new float4
+				var pos = spheresPositions[i] * noiseFreq + time;
+				spheresDeltas[i] = new float4
 				{
 					x = noise.snoise(pos.yz) * 5.0f,
 					y = noise.snoise(pos.xz) * 5.0f,
 					z = noise.snoise(pos.xy) * 5.0f,
 					w = noise.snoise(pos.xy + time * 3.0f) * 1.5f + 4.0f
 				};
-
 			}
 		}
 
-		/// <summary>
-		/// Parallel job for x coordinate
-		/// </summary>
-		public void Execute(int jobIndex)
+		private void SphereblobJob(int x)
 		{
-			var flatIndex = jobIndex * Chunk.ChunkSize * Chunk.ChunkSize;
-			var x = jobIndex;
+			var flatIndex = x * Chunk.ChunkSize * Chunk.ChunkSize;
 
 			for (int y = 0; y < Chunk.ChunkSize; y++)
 			{
@@ -123,10 +120,10 @@ namespace NaiveSurfaceNets
 					var value = 1.0f;
 					var voxelPos = new float3(x, y, z);
 
-					for (int i = 0; i < positions.Length; i++)
+					for (int i = 0; i < spheresPositions.Length; i++)
 					{
-						var vector = voxelPos - (positions[i] + deltas[i].xyz);
-						var val = math.length(vector) - deltas[i].w;
+						var vector = voxelPos - (spheresPositions[i] + spheresDeltas[i].xyz);
+						var val = math.length(vector) - spheresDeltas[i].w;
 
 						value = math.min(value, math.max(val, -1.0f));
 					}
@@ -136,6 +133,27 @@ namespace NaiveSurfaceNets
 				}
 			}
 		}
-	}
 
+		private void TerrainJob(int x)
+		{
+			var flatIndex = x * Chunk.ChunkSize * Chunk.ChunkSize;
+			
+			for (int y = 0; y < Chunk.ChunkSize; y++)
+			{
+				for (int z = 0; z < Chunk.ChunkSize; z++)
+				{
+					float2 noisePos = new float2(x, z) * time;
+					var val = y - (
+						noise.snoise(noisePos * 0.01f) * 8.0f +
+						noise.snoise(noisePos * 0.02f) * 4.0f +
+						noise.snoise(noisePos * 0.04f) * 2.0f +
+						noise.snoise(noisePos * 0.16f) * 0.5f -
+						15.5f);
+					val = math.clamp(val, -1.0f, 1.0f) * -127;
+					volume[flatIndex] = (sbyte)val;
+					flatIndex++;
+				}
+			}
+		}
+	}
 }
