@@ -10,7 +10,7 @@ https://youtu.be/_Bix6-4O6mM
 - Cornermask calculations are done using SIMD stuff, 32 cubes at time (32x2x2 voxels), reusing values calculated from previous loop steps.
 - All SIMD things are well commented to explain what it is and why it is, with links to Intel intrinsics pages.
 - Optimal mesh. All vertices are shared. There are no duplicates.
-- 3 Different SDF generation mechanisms (sphere, noise, something like noise but with spheres - *sphereblobs*).
+- Different SDF generation mechanisms (sphere, noise, something like noise but with spheres - *sphereblobs*, simple terrain).
 Default 3d noise values does not match real SDF values, so I just filled volume with spheres of different sizes at different locations.
 - Use of advanced mesh api for faster uploading meshes. (SetVertexBufferData... etc.)
 - Because its done entirely on cpu, output mesh can be easily used for collisions.
